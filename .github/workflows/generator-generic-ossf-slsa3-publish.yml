@@ -1,29 +1,64 @@
-name: Generate SLSA Provenance (Attest Build)
+name: SLSA Provenance - Generic L3
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:          # Lets you run manually from Actions tab
+  push:                       # Optional: runs on every push (comment out if unwanted)
+    branches: [ main ]
   release:
-    types: [created]
+    types: [created]          # Attaches provenance to GitHub Releases
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
-    permissions:
-      id-token: write        # Required for signing
-      contents: write        # If uploading to release
+    outputs:
+      base64_subjects: ${{ steps.hash.outputs.base64_subjects }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Build artifacts
+      # =============================================
+      #   REPLACE THIS WITH YOUR REAL BUILD COMMANDS
+      # =============================================
+      - name: Build example artifacts
         run: |
-          # Replace with your real build commands
-          echo "artifact1" > artifact1.txt
-          echo "artifact2" > artifact2.txt
+          echo "This is artifact one" > artifact1.txt
+          echo "This is artifact two" > artifact2.bin
+          # Add mkdir, npm build, go build, cargo build, etc. here
 
-      - name: Attest build provenance
-        uses: actions/attest-build-provenance@v2  # or @v1 — check latest
-        with:
-          subject-path: 'artifact*.txt'   # glob or list your files here
-          # Optional: push-to-registry: false   # default
+      # =============================================
+      #   Generate SLSA subjects (required format)
+      # =============================================
+      - name: Generate base64-encoded sha256 subjects
+        id: hash
+        run: |
+          set -euo pipefail
+
+          # Find all files you want to attest (adjust pattern!)
+          files=$(find . -type f \( -name "artifact*.txt" -o -name "artifact*.bin" \) 2>/dev/null || true)
+
+          if [ -z "$files" ]; then
+            echo "Error: No artifacts found to attest" >&2
+            exit 1
+          fi
+
+          # Format: sha256sum → base64 whole line list
+          subjects=$(sha256sum $files | base64 -w0)
+          echo "base64_subjects=$subjects" >> "$GITHUB_OUTPUT"
+
+          # Optional: show what we're attesting
+          echo "Attesting these files:"
+          echo "$files"
+
+  attest:
+    needs: build
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write       # Required to sign with Sigstore / GitHub OIDC
+      contents: write       # Required to upload to release (if upload-assets: true)
+
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: ${{ needs.build.outputs.base64_subjects }}
+      upload-assets: true   # Attaches provenance.intoto.jsonl to release (if triggered by release)
