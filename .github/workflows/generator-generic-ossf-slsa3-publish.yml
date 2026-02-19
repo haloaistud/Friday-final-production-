@@ -1,66 +1,64 @@
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
+name: SLSA Provenance - Generic L3
 
-# This workflow lets you generate SLSA provenance file for your project.
-# The generation satisfies level 3 for the provenance requirements - see https://slsa.dev/spec/v0.1/requirements
-# The project is an initiative of the OpenSSF (openssf.org) and is developed at
-# https://github.com/slsa-framework/slsa-github-generator.
-# The provenance file can be verified using https://github.com/slsa-framework/slsa-verifier.
-# For more information about SLSA and how it improves the supply-chain, visit slsa.dev.
-
-name: SLSA generic generator
 on:
-  workflow_dispatch:
+  workflow_dispatch:          # Lets you run manually from Actions tab
+  push:                       # Optional: runs on every push (comment out if unwanted)
+    branches: [ main ]
   release:
-    types: [created]
+    types: [created]          # Attaches provenance to GitHub Releases
 
 jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
-      digests: ${{ steps.hash.outputs.digests }}
+      base64_subjects: ${{ steps.hash.outputs.base64_subjects }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      # ========================================================
-      #
-      # Step 1: Build your artifacts.
-      #
-      # ========================================================
-      - name: Build artifacts
+      # =============================================
+      #   REPLACE THIS WITH YOUR REAL BUILD COMMANDS
+      # =============================================
+      - name: Build example artifacts
         run: |
-            # These are some amazing artifacts.
-            echo "artifact1" > artifact1
-            echo "artifact2" > artifact2
+          echo "This is artifact one" > artifact1.txt
+          echo "This is artifact two" > artifact2.bin
+          # Add mkdir, npm build, go build, cargo build, etc. here
 
-      # ========================================================
-      #
-      # Step 2: Add a step to generate the provenance subjects
-      #         as shown below. Update the sha256 sum arguments
-      #         to include all binaries that you generate
-      #         provenance for.
-      #
-      # ========================================================
-      - name: Generate subject for provenance
+      # =============================================
+      #   Generate SLSA subjects (required format)
+      # =============================================
+      - name: Generate base64-encoded sha256 subjects
         id: hash
         run: |
           set -euo pipefail
 
-          # List the artifacts the provenance will refer to.
-          files=$(ls artifact*)
-          # Generate the subjects (base64 encoded).
-          echo "hashes=$(sha256sum $files | base64 -w0)" >> "${GITHUB_OUTPUT}"
+          # Find all files you want to attest (adjust pattern!)
+          files=$(find . -type f \( -name "artifact*.txt" -o -name "artifact*.bin" \) 2>/dev/null || true)
 
-  provenance:
-    needs: [build]
+          if [ -z "$files" ]; then
+            echo "Error: No artifacts found to attest" >&2
+            exit 1
+          fi
+
+          # Format: sha256sum → base64 whole line list
+          subjects=$(sha256sum $files | base64 -w0)
+          echo "base64_subjects=$subjects" >> "$GITHUB_OUTPUT"
+
+          # Optional: show what we're attesting
+          echo "Attesting these files:"
+          echo "$files"
+
+  attest:
+    needs: build
+    runs-on: ubuntu-latest
+
     permissions:
-      actions: read   # To read the workflow path.
-      id-token: write # To sign the provenance.
-      contents: write # To add assets to a release.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.4.0
-    with:
-      base64-subjects: "${{ needs.build.outputs.digests }}"
-      upload-assets: true # Optional: Upload to a new release
+      id-token: write       # Required to sign with Sigstore / GitHub OIDC
+      contents: write       # Required to upload to release (if upload-assets: true)
+
+    
+      
+       base64-subjects: ${{ needs.build.outputs.base64_subjects }}
+      upload-assets: true   # Attaches provenance.intoto.jsonl to release (if triggered by release)
