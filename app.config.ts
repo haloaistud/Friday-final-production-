@@ -10,12 +10,20 @@ const config: ExpoConfig = {
   newArchEnabled: true,
   ios: {
     supportsTablet: true,
+    infoPlist: {
+      NSMicrophoneUsageDescription: "This app uses your microphone to record voice messages for Friday AI.",
+      NSLocalNetworkUsageDescription: "This app uses local network to communicate with Friday AI.",
+    },
   },
   android: {
     adaptiveIcon: {
       foregroundImage: "./assets/adaptive-icon.png",
       backgroundColor: "#050505",
     },
+    permissions: [
+      "android.permission.RECORD_AUDIO",
+      "android.permission.INTERNET",
+    ],
   },
   web: {
     bundler: "metro",
@@ -24,6 +32,12 @@ const config: ExpoConfig = {
   },
   plugins: [
     "expo-router",
+    [
+      "expo-audio",
+      {
+        microphonePermission: "Allow $(PRODUCT_NAME) to access your microphone.",
+      },
+    ],
     [
       "expo-splash-screen",
       {
