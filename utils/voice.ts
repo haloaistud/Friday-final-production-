@@ -8,18 +8,16 @@ export interface VoiceRecordingState {
   recordingUri: string | null;
 }
 
-let recording: Audio.Recording | null = null;
+let recording: any = null;
 let recordingStartTime = 0;
 
 export async function initializeAudio() {
   try {
     if (Platform.OS !== "web") {
       await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-        shouldDuckAndroid: true,
-        playThroughEarpiece: false,
-      });
+        allowsRecording: true,
+        playsInSilentMode: true,
+      } as any);
     }
   } catch (error) {
     console.error("Failed to initialize audio:", error);
@@ -33,11 +31,14 @@ export async function startRecording(): Promise<string | null> {
       return null;
     }
 
-    const newRecording = new Audio.Recording();
-    await newRecording.prepareToRecordAsync(
-      Audio.RecordingOptionsPresets.HIGH_QUALITY
-    );
-    await newRecording.startAsync();
+    const newRecording = new (Audio as any).Recording();
+    try {
+      await newRecording.prepareToRecordAsync(Audio.RecordingPresets.HIGH_QUALITY);
+      await newRecording.startAsync();
+    } catch (e) {
+      console.error("Prepare recording error:", e);
+      throw e;
+    }
 
     recording = newRecording;
     recordingStartTime = Date.now();
@@ -78,9 +79,9 @@ export function isRecording(): boolean {
 
 export async function playAudio(uri: string): Promise<void> {
   try {
-    const soundObject = new Audio.Sound();
-    await soundObject.loadAsync({ uri });
-    await soundObject.playAsync();
+    const sound = new (Audio as any).Sound();
+    await sound.loadAsync({ uri });
+    await sound.playAsync();
   } catch (error) {
     console.error("Failed to play audio:", error);
   }
