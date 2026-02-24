@@ -10,6 +10,7 @@ import {
   Platform,
   KeyboardAvoidingView,
   Alert,
+  StyleSheet,
 } from "react-native";
 import { GoogleGenAI } from "@google/genai";
 import * as Haptics from "expo-haptics";
@@ -17,8 +18,6 @@ import {
   initializeAudio,
   startRecording,
   stopRecording,
-  getRecordingDuration,
-  isRecording,
   transcribeAudio,
 } from "@/utils/voice";
 
@@ -30,6 +29,171 @@ interface ChatMessage {
   isVoice?: boolean;
 }
 
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#000",
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.05)",
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  headerTitle: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#00d4ff",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.4)",
+    marginTop: 4,
+  },
+  messageContainer: {
+    flex: 1,
+    padding: 16,
+    paddingBottom: 20,
+  },
+  messageBubble: {
+    maxWidth: "85%",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  userBubble: {
+    backgroundColor: "rgba(255,255,255,0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
+  },
+  aiBubble: {
+    backgroundColor: "rgba(0,212,255,0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(0,212,255,0.3)",
+  },
+  messageLabel: {
+    fontSize: 10,
+    fontWeight: "bold",
+    color: "rgba(255,255,255,0.6)",
+    marginBottom: 4,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  messageText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  userText: {
+    color: "rgba(255,255,255,0.8)",
+  },
+  aiText: {
+    color: "#00d4ff",
+  },
+  inputContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.05)",
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  textInput: {
+    flex: 1,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    color: "#fff",
+    fontSize: 14,
+  },
+  button: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  sendButton: {
+    backgroundColor: "rgba(0,212,255,0.2)",
+    borderColor: "rgba(0,212,255,0.5)",
+  },
+  voiceButton: {
+    backgroundColor: "rgba(168,85,247,0.2)",
+    borderColor: "rgba(168,85,247,0.5)",
+  },
+  buttonText: {
+    fontWeight: "bold",
+    fontSize: 14,
+  },
+  sendButtonText: {
+    color: "#00d4ff",
+  },
+  voiceButtonText: {
+    color: "#a855f7",
+  },
+  recordingIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(239,68,68,0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(239,68,68,0.3)",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginBottom: 12,
+    justifyContent: "space-between",
+  },
+  recordingText: {
+    fontSize: 12,
+    color: "#f87171",
+    fontWeight: "bold",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  typingIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0,212,255,0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(0,212,255,0.3)",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
+  typingText: {
+    fontSize: 12,
+    color: "#00d4ff",
+    fontWeight: "bold",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginLeft: 8,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  emptyText: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 14,
+    textAlign: "center",
+  },
+});
+
 export default function ChatScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -38,7 +202,7 @@ export default function ChatScreen() {
   const [recordingDuration, setRecordingDuration] = useState(0);
   const chatRef = useRef<any>(null);
   const flatListRef = useRef<FlatList>(null);
-  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingIntervalRef = useRef<any>(null);
   const apiKeyRef = useRef<string>(
     process.env.EXPO_PUBLIC_GEMINI_API_KEY || process.env.API_KEY || ""
   );
@@ -127,7 +291,9 @@ export default function ChatScreen() {
 
   const handleStartRecording = async () => {
     try {
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      if (Platform.OS !== "web") {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
       setIsRecordingAudio(true);
       setRecordingDuration(0);
 
@@ -149,7 +315,9 @@ export default function ChatScreen() {
         clearInterval(recordingIntervalRef.current);
       }
 
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (Platform.OS !== "web") {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
       setIsRecordingAudio(false);
 
       const audioUri = await stopRecording();
@@ -158,7 +326,6 @@ export default function ChatScreen() {
         return;
       }
 
-      // Show transcribing indicator
       setIsTyping(true);
 
       const transcribedText = await transcribeAudio(audioUri, apiKeyRef.current);
@@ -177,35 +344,25 @@ export default function ChatScreen() {
   };
 
   const renderMessage = ({ item }: { item: ChatMessage }) => (
-    <View className={`flex-row mb-4 ${item.role === "user" ? "justify-end" : "justify-start"}`}>
-      <View
-        className={`max-w-xs p-3 rounded-lg ${
-          item.role === "user"
-            ? "bg-white/10 border border-white/20"
-            : "bg-cyan-500/10 border border-cyan-500/30"
-        }`}
-      >
-        <View className="flex-row items-center gap-2 mb-1">
-          <Text className="text-xs font-bold text-white/60 uppercase tracking-wider">
+    <View style={{ flexDirection: item.role === "user" ? "row-reverse" : "row", marginBottom: 16 }}>
+      <View style={[styles.messageBubble, item.role === "user" ? styles.userBubble : styles.aiBubble]}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
+          <Text style={styles.messageLabel}>
             {item.role === "user" ? "You" : "Friday"}
           </Text>
-          {item.isVoice && <Text className="text-xs">🎤</Text>}
+          {item.isVoice && <Text>🎤</Text>}
         </View>
-        <Text
-          className={`text-sm leading-relaxed ${
-            item.role === "user" ? "text-white/80" : "text-cyan-400"
-          }`}
-        >
+        <Text style={[styles.messageText, item.role === "user" ? styles.userText : styles.aiText]}>
           {item.text}
         </Text>
 
         {item.sources && item.sources.length > 0 && (
-          <View className="mt-3 pt-3 border-t border-cyan-500/20">
-            <Text className="text-xs text-cyan-400/70 font-bold mb-2 uppercase tracking-wider">
+          <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: "rgba(0,212,255,0.2)" }}>
+            <Text style={{ fontSize: 10, color: "rgba(0,212,255,0.7)", fontWeight: "bold", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
               Sources
             </Text>
             {item.sources.map((src, idx) => (
-              <Text key={idx} className="text-xs text-cyan-400 mb-1">
+              <Text key={idx} style={{ fontSize: 10, color: "#00d4ff", marginBottom: 4 }}>
                 🔗 {src.title}
               </Text>
             ))}
@@ -218,29 +375,25 @@ export default function ChatScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      className="flex-1 bg-black"
+      style={styles.container}
     >
-      <SafeAreaView className="flex-1 bg-black">
-        {/* Header */}
-        <View className="px-4 py-4 border-b border-white/5 bg-black/50">
-          <Text className="text-xs font-bold text-cyan-400 uppercase tracking-widest">
-            💬 TEXT UPLINK
-          </Text>
-          <Text className="text-xs text-white/40 mt-1">Model: Gemini 3 Flash | Voice: Enabled</Text>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>💬 TEXT UPLINK</Text>
+          <Text style={styles.headerSubtitle}>Model: Gemini 3 Flash | Voice: Enabled</Text>
         </View>
 
-        {/* Messages */}
         <FlatList
           ref={flatListRef}
           data={messages}
           renderItem={renderMessage}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ padding: 16, paddingBottom: 20 }}
+          contentContainerStyle={styles.messageContainer}
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
           ListEmptyComponent={
-            <View className="flex-1 items-center justify-center">
-              <Text className="text-4xl mb-4">💬</Text>
-              <Text className="text-white/40 text-sm text-center">
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyIcon}>💬</Text>
+              <Text style={styles.emptyText}>
                 Start a conversation with Friday AI{"\n"}
                 Use text or voice input
               </Text>
@@ -249,43 +402,36 @@ export default function ChatScreen() {
         />
 
         {isTyping && (
-          <View className="px-4 py-2">
-            <View className="flex-row items-center bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-3">
-              <ActivityIndicator color="#00d4ff" size="small" />
-              <Text className="text-xs text-cyan-400 ml-2 uppercase tracking-wider">
-                Processing...
-              </Text>
-            </View>
+          <View style={styles.typingIndicator}>
+            <ActivityIndicator color="#00d4ff" size="small" />
+            <Text style={styles.typingText}>Processing...</Text>
           </View>
         )}
 
-        {/* Input */}
-        <View className="px-4 py-4 border-t border-white/5 bg-black/50">
+        <View style={styles.inputContainer}>
           {isRecordingAudio && (
-            <View className="mb-3 p-3 bg-red-500/10 border border-red-500/30 rounded-lg flex-row items-center justify-between">
-              <View className="flex-row items-center gap-2">
-                <View className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                <Text className="text-xs text-red-400 font-bold uppercase tracking-wider">
-                  Recording: {recordingDuration}s
-                </Text>
+            <View style={styles.recordingIndicator}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#ef4444" }} />
+                <Text style={styles.recordingText}>Recording: {recordingDuration}s</Text>
               </View>
               <TouchableOpacity
                 onPress={handleStopRecording}
-                className="px-3 py-1.5 bg-red-500/20 border border-red-500/50 rounded"
+                style={{ paddingHorizontal: 12, paddingVertical: 6, backgroundColor: "rgba(239,68,68,0.2)", borderWidth: 1, borderColor: "rgba(239,68,68,0.5)", borderRadius: 4 }}
               >
-                <Text className="text-xs text-red-400 font-bold">Stop</Text>
+                <Text style={{ fontSize: 12, color: "#f87171", fontWeight: "bold" }}>Stop</Text>
               </TouchableOpacity>
             </View>
           )}
 
-          <View className="flex-row items-center gap-2">
+          <View style={styles.inputRow}>
             <TextInput
               value={input}
               onChangeText={setInput}
               placeholder="Ask Friday..."
               placeholderTextColor="rgba(255,255,255,0.3)"
               editable={!isTyping && !isRecordingAudio}
-              className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white text-sm"
+              style={styles.textInput}
             />
 
             {!isRecordingAudio ? (
@@ -293,25 +439,17 @@ export default function ChatScreen() {
                 <TouchableOpacity
                   onPress={handleStartRecording}
                   disabled={isTyping}
-                  className={`px-4 py-3 rounded-lg ${
-                    isTyping
-                      ? "bg-purple-500/30 opacity-50"
-                      : "bg-purple-500/20 border border-purple-500/50"
-                  }`}
+                  style={[styles.button, styles.voiceButton, isTyping && { opacity: 0.5 }]}
                 >
-                  <Text className="text-purple-400 font-bold text-lg">🎤</Text>
+                  <Text style={[styles.buttonText, styles.voiceButtonText]}>🎤</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   onPress={() => handleSend()}
                   disabled={isTyping || !input.trim()}
-                  className={`px-4 py-3 rounded-lg ${
-                    isTyping || !input.trim()
-                      ? "bg-cyan-500/30 opacity-50"
-                      : "bg-cyan-500/20 border border-cyan-500/50"
-                  }`}
+                  style={[styles.button, styles.sendButton, (isTyping || !input.trim()) && { opacity: 0.5 }]}
                 >
-                  <Text className="text-cyan-400 font-bold text-sm">Send</Text>
+                  <Text style={[styles.buttonText, styles.sendButtonText]}>Send</Text>
                 </TouchableOpacity>
               </>
             ) : null}

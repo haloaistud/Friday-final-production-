@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, SafeAreaView, ScrollView, TouchableOpacity, Alert } from "react-native";
+import {
+  View,
+  Text,
+  SafeAreaView,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  StyleSheet,
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface MemoryEntry {
@@ -8,6 +16,119 @@ interface MemoryEntry {
   content: string;
   type: "note" | "conversation";
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#000",
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.05)",
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  headerTitle: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#d8b4fe",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.4)",
+    marginTop: 4,
+  },
+  content: {
+    padding: 16,
+  },
+  memoryCard: {
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 12,
+  },
+  memoryHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 8,
+  },
+  memoryType: {
+    fontSize: 12,
+    color: "#d8b4fe",
+    fontWeight: "bold",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  memoryTime: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.4)",
+  },
+  memoryContent: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.7)",
+    lineHeight: 20,
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 48,
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  emptyText: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 14,
+    textAlign: "center",
+  },
+  clearButton: {
+    marginTop: 24,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    backgroundColor: "rgba(239,68,68,0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(239,68,68,0.3)",
+    borderRadius: 8,
+  },
+  clearButtonText: {
+    fontSize: 12,
+    color: "#f87171",
+    fontWeight: "bold",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    textAlign: "center",
+  },
+  infoCard: {
+    marginTop: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "rgba(168,85,247,0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(168,85,247,0.2)",
+    borderRadius: 8,
+  },
+  infoTitle: {
+    fontSize: 12,
+    color: "#d8b4fe",
+    fontWeight: "bold",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  infoText: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.6)",
+    lineHeight: 18,
+  },
+});
 
 export default function MemoryScreen() {
   const [memories, setMemories] = useState<MemoryEntry[]>([]);
@@ -45,24 +166,18 @@ export default function MemoryScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-black">
-      <ScrollView className="flex-1">
-        {/* Header */}
-        <View className="px-4 py-4 border-b border-white/5 bg-black/50">
-          <Text className="text-xs font-bold text-purple-400 uppercase tracking-widest">
-            💾 MEMORY CORE
-          </Text>
-          <Text className="text-xs text-white/40 mt-1">
-            {memories.length} entries stored
-          </Text>
+    <SafeAreaView style={styles.container}>
+      <ScrollView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>💾 MEMORY CORE</Text>
+          <Text style={styles.headerSubtitle}>{memories.length} entries stored</Text>
         </View>
 
-        {/* Content */}
-        <View className="p-4">
+        <View style={styles.content}>
           {memories.length === 0 ? (
-            <View className="items-center justify-center py-12">
-              <Text className="text-4xl mb-4">💾</Text>
-              <Text className="text-white/40 text-sm text-center">
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyIcon}>💾</Text>
+              <Text style={styles.emptyText}>
                 No memories stored yet.{"\n"}
                 Conversations will be saved here.
               </Text>
@@ -70,37 +185,26 @@ export default function MemoryScreen() {
           ) : (
             <>
               {memories.map((memory) => (
-                <View
-                  key={memory.id}
-                  className="bg-white/5 border border-white/10 rounded-lg p-4 mb-3"
-                >
-                  <View className="flex-row justify-between items-start mb-2">
-                    <Text className="text-xs text-purple-400 font-bold uppercase tracking-wider">
+                <View key={memory.id} style={styles.memoryCard}>
+                  <View style={styles.memoryHeader}>
+                    <Text style={styles.memoryType}>
                       {memory.type === "conversation" ? "💬 Conversation" : "📝 Note"}
                     </Text>
-                    <Text className="text-xs text-white/40">{memory.timestamp}</Text>
+                    <Text style={styles.memoryTime}>{memory.timestamp}</Text>
                   </View>
-                  <Text className="text-sm text-white/70 leading-relaxed">{memory.content}</Text>
+                  <Text style={styles.memoryContent}>{memory.content}</Text>
                 </View>
               ))}
 
-              <TouchableOpacity
-                onPress={clearMemories}
-                className="mt-6 p-3 bg-red-500/10 border border-red-500/30 rounded-lg"
-              >
-                <Text className="text-xs text-red-400 font-bold uppercase tracking-wider text-center">
-                  🗑️ Clear All Memories
-                </Text>
+              <TouchableOpacity onPress={clearMemories} style={styles.clearButton}>
+                <Text style={styles.clearButtonText}>🗑️ Clear All Memories</Text>
               </TouchableOpacity>
             </>
           )}
 
-          {/* Info */}
-          <View className="mt-6 p-4 bg-purple-500/10 border border-purple-500/20 rounded-lg">
-            <Text className="text-xs text-purple-400 font-bold uppercase tracking-wider mb-2">
-              ℹ️ Memory Storage
-            </Text>
-            <Text className="text-xs text-white/60 leading-relaxed">
+          <View style={styles.infoCard}>
+            <Text style={styles.infoTitle}>ℹ️ Memory Storage</Text>
+            <Text style={styles.infoText}>
               Your conversations and notes are stored locally on this device. This data is not
               synced to the cloud.
             </Text>
